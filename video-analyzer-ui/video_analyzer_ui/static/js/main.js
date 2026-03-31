@@ -9,12 +9,13 @@ const configSection = document.getElementById('configSection');
 const outputSection = document.getElementById('outputSection');
 const analysisForm = document.getElementById('analysisForm');
 const outputText = document.getElementById('outputText');
-const commandPreview = document.getElementById('commandPreview');
 const downloadResults = document.getElementById('downloadResults');
 const newAnalysis = document.getElementById('newAnalysis');
 const clientSelect = document.getElementById('client');
 const ollamaSettings = document.getElementById('ollamaSettings');
 const openaiSettings = document.getElementById('openaiSettings');
+const modelscopeSettings = document.getElementById('modelscopeSettings');
+const statusIndicator = document.getElementById('statusIndicator');
 
 // Event Listeners
 dropZone.addEventListener('click', () => fileInput.click());
@@ -23,8 +24,10 @@ dropZone.addEventListener('dragleave', handleDragLeave);
 dropZone.addEventListener('drop', handleDrop);
 fileInput.addEventListener('change', handleFileSelect);
 analysisForm.addEventListener('submit', handleAnalysis);
-analysisForm.addEventListener('input', updateCommandPreview);
 clientSelect.addEventListener('change', toggleClientSettings);
+document.getElementById('temperature').addEventListener('input', (e) => {
+    document.getElementById('temperatureValue').textContent = e.target.value;
+});
 downloadResults.addEventListener('click', downloadAnalysisResults);
 newAnalysis.addEventListener('click', resetUI);
 
@@ -93,20 +96,14 @@ async function handleAnalysis(e) {
     const formData = new FormData(analysisForm);
     showOutputSection();
     
-    // Close any existing event source
     if (outputEventSource) {
         outputEventSource.close();
     }
     
-    // Clear previous output and show loading
-    outputText.textContent = '';
-    const loadingDiv = document.createElement('div');
-    loadingDiv.className = 'loading';
-    loadingDiv.innerHTML = '<div class="loading-text">Analyzing video...</div>';
-    outputText.parentElement.appendChild(loadingDiv);
+    outputText.innerHTML = '';
+    statusIndicator.style.display = 'block';
     
     try {
-        // Make POST request to start analysis
         const response = await fetch(`/analyze/${currentSession}`, {
             method: 'POST',
             body: formData
@@ -117,59 +114,54 @@ async function handleAnalysis(e) {
             throw new Error(data.error || 'Failed to start analysis');
         }
     } catch (error) {
-        outputText.textContent = `Error starting analysis: ${error.message}\n`;
-        document.querySelector('.output-actions').style.display = 'flex';
-        downloadResults.style.display = 'none';
-        loadingDiv.remove();
+        appendConsoleLine(`Error starting analysis: ${error.message}`, 'error');
+        finishAnalysis(false);
         return;
     }
 
-    // Start SSE connection for output
     outputEventSource = new EventSource(`/analyze/${currentSession}/stream`);
     
     outputEventSource.onmessage = (event) => {
-        // Remove loading indicator on first message
-        if (loadingDiv.parentElement) {
-            loadingDiv.remove();
-        }
+        const line = event.data;
+        appendConsoleLine(line);
         
-        outputText.textContent += event.data + '\n';
-        outputText.scrollTop = outputText.scrollHeight;
-        
-        if (event.data.includes('Analysis completed successfully')) {
-            outputEventSource.close();
-            document.querySelector('.output-actions').style.display = 'flex';
-            downloadResults.style.display = 'inline-block';
-        } else if (event.data.includes('Analysis failed')) {
-            outputEventSource.close();
-            outputText.textContent += '\nAnalysis failed. Please check the output above for errors.\n';
-            // Show new analysis button but not download button
-            document.querySelector('.output-actions').style.display = 'flex';
-            downloadResults.style.display = 'none';
+        if (line.includes('Analysis completed successfully')) {
+            finishAnalysis(true);
+        } else if (line.includes('Analysis failed')) {
+            finishAnalysis(false);
         }
     };
     
     outputEventSource.onerror = (error) => {
         console.error('SSE Error:', error);
         outputEventSource.close();
-        
-        // Remove loading indicator if it exists
-        if (loadingDiv.parentElement) {
-            loadingDiv.remove();
-        }
-        
-        outputText.textContent += '\nError: Connection to server lost. Please try again.\n';
-        // Show new analysis button but not download button
-        document.querySelector('.output-actions').style.display = 'flex';
-        downloadResults.style.display = 'none';
+        appendConsoleLine('Connection to server lost. Please check if the backend is running.', 'error');
+        finishAnalysis(false);
     };
+}
+
+function appendConsoleLine(text, type = 'info') {
+    const div = document.createElement('div');
+    div.className = 'console-line';
+    if (type === 'error') div.style.color = '#ef4444';
+    div.textContent = `> ${text}`;
+    outputText.appendChild(div);
+    div.parentElement.scrollTop = div.parentElement.scrollHeight;
+}
+
+function finishAnalysis(success) {
+    if (outputEventSource) outputEventSource.close();
+    statusIndicator.style.display = 'none';
+    document.querySelector('.output-actions').style.display = 'flex';
+    downloadResults.style.display = success ? 'inline-block' : 'none';
 }
 
 // UI Updates
 function showConfigSection() {
     dropZone.style.display = 'none';
     configSection.style.display = 'block';
-    updateCommandPreview();
+    // Set default model based on initial client
+    toggleClientSettings();
 }
 
 function showOutputSection() {
@@ -180,83 +172,47 @@ function showOutputSection() {
 
 function toggleClientSettings() {
     const client = clientSelect.value;
+    const modelInput = document.getElementById('model');
+    
+    ollamaSettings.style.display = 'none';
+    openaiSettings.style.display = 'none';
+    modelscopeSettings.style.display = 'none';
+    
     if (client === 'ollama') {
         ollamaSettings.style.display = 'block';
-        openaiSettings.style.display = 'none';
-    } else {
-        ollamaSettings.style.display = 'none';
+        modelInput.value = 'llama3.2-vision';
+    } else if (client === 'openai_api') {
         openaiSettings.style.display = 'block';
+        modelInput.value = 'gpt-4-vision-preview';
+    } else if (client === 'modelscope') {
+        modelscopeSettings.style.display = 'block';
+        modelInput.value = window.DEFAULT_MODEL || 'Qwen/Qwen2-VL-7B-Instruct';
     }
-    updateCommandPreview();
-}
-
-function updateCommandPreview() {
-    const formData = new FormData(analysisForm);
-    let command = 'video-analyzer <video_path>';
-    
-    for (const [key, value] of formData.entries()) {
-        if (value) {
-            if (key === 'keep-frames') {
-                command += ` --${key}`;
-            } else {
-                command += ` --${key} ${value}`;
-            }
-        }
-    }
-    
-    commandPreview.textContent = command;
 }
 
 // Results Handling
 async function downloadAnalysisResults() {
     if (!currentSession) return;
-    
-    try {
-        const response = await fetch(`/results/${currentSession}`);
-        if (!response.ok) {
-            const data = await response.json();
-            throw new Error(data.error || 'Failed to fetch results');
-        }
-        
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'analysis.json';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-    } catch (error) {
-        alert(`Error downloading results: ${error.message}`);
-        console.error('Download error:', error);
-    }
+    window.location.href = `/results/${currentSession}`;
 }
 
 function resetUI() {
-    // Clean up current session
     if (currentSession) {
         fetch(`/cleanup/${currentSession}`, { method: 'POST' })
             .catch(error => console.error('Cleanup error:', error));
     }
     
-    // Reset state
     currentSession = null;
     if (outputEventSource) {
         outputEventSource.close();
     }
     
-    // Reset form
     analysisForm.reset();
-    
-    // Reset UI
     dropZone.style.display = 'block';
     configSection.style.display = 'none';
     outputSection.style.display = 'none';
-    outputText.textContent = '';
+    outputText.innerHTML = '';
     fileInput.value = '';
-    
-    // Reset client settings
     toggleClientSettings();
 }
 

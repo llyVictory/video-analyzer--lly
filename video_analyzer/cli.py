@@ -4,6 +4,7 @@ import json
 import logging
 import shutil
 import sys
+import time
 from typing import Optional
 import torch
 import torch.backends.mps
@@ -152,7 +153,7 @@ def main():
             
         # Stage 2: Frame Analysis
         if args.start_stage <= 2:
-            logger.info("Analyzing frames...")
+            logger.info(f"Analyzing {len(frames)} frames...")
             analyzer = VideoAnalyzer(
                 client, 
                 model, 
@@ -160,10 +161,54 @@ def main():
                 config.get("clients", {}).get("temperature", 0.2),
                 config.get("prompt", "")
             )
+            
+            # --- 断点续传逻辑 (Checkpoint Support) ---
             frame_analyses = []
-            for frame in frames:
+            results_file = output_dir / "analysis.json"
+            existing_results = {}
+            if results_file.exists():
+                try:
+                    with open(results_file) as f:
+                        data = json.load(f)
+                        # 建立快速索引：timestamp -> analysis
+                        for fa in data.get("frame_analyses", []):
+                            if "timestamp" in fa:
+                                existing_results[f"{fa['timestamp']:.3f}"] = fa
+                    logger.info(f"Detected existing analysis.json, found {len(existing_results)} completed frames.")
+                except Exception as e:
+                    logger.warning(f"Could not load existing analysis for checkpoint: {e}")
+
+            total_frames = len(frames)
+            for i, frame in enumerate(frames):
+                ts_key = f"{frame.timestamp:.3f}"
+                if ts_key in existing_results:
+                    logger.info(f"Checkpoint: Skipping frame {i+1}/{total_frames} (already analyzed)")
+                    analysis = existing_results[ts_key]
+                    # 同步到 analyzer 内存以便维持上下文
+                    analyzer.previous_analyses.append(analysis)
+                    frame_analyses.append(analysis)
+                    continue
+
+                logger.info(f"Progress: Analyzing frame {i+1}/{total_frames} ({(i+1)/total_frames*100:.1f}%)")
                 analysis = analyzer.analyze_frame(frame)
+                # 记录时间戳以便后续索引
+                analysis["timestamp"] = frame.timestamp
                 frame_analyses.append(analysis)
+                
+                # --- 增量存盘 (Incremental Save) ---
+                # 每跑一帧都存一下，防止后面又被 429
+                temp_results = {
+                    "metadata": {"frames_processed": len(frame_analyses), "status": "incomplete"},
+                    "frame_analyses": frame_analyses
+                }
+                with open(results_file, "w") as f:
+                    json.dump(temp_results, f, indent=2)
+                
+                # --- 优雅退避 (Rate Limiting) ---
+                # 每帧分析后强制休息 1.5 秒，防止触发魔搭等 API 的 429 报错
+                time.sleep(1.5)
+            
+            logger.info("Frame analysis complete.")
                 
         # Stage 3: Video Reconstruction
         if args.start_stage <= 3:

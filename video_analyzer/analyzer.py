@@ -29,7 +29,7 @@ class VideoAnalyzer:
     def _format_user_prompt(self) -> str:
         """Format the user's prompt by adding prefix if not empty."""
         if self.user_prompt:
-            return f"I want to know {self.user_prompt}"
+            return f"我想了解：{self.user_prompt}"
         return ""
         
     def _load_prompts(self):
@@ -45,8 +45,8 @@ class VideoAnalyzer:
         formatted_analyses = []
         for i, analysis in enumerate(self.previous_analyses):
             formatted_analysis = (
-                f"Frame {i}\n"
-                f"{analysis.get('response', 'No analysis available')}\n"
+                f"帧 {i}\n"
+                f"{analysis.get('response', '不可用')}\n"
             )
             formatted_analyses.append(formatted_analysis)
             
@@ -58,7 +58,7 @@ class VideoAnalyzer:
         # Replace tokens in the prompt template
         prompt = self.frame_prompt.replace("{PREVIOUS_FRAMES}", self._format_previous_analyses())
         prompt = prompt.replace("{prompt}", self._format_user_prompt())
-        prompt = f"{prompt}\nThis is frame {frame.number} captured at {frame.timestamp:.2f} seconds."
+        prompt = f"{prompt}\n这是在 {frame.timestamp:.2f} 秒截取的第 {frame.number} 帧图片。\n请使用中文进行详细描述。"
         
         try:
             response = self.client.generate(
@@ -66,7 +66,7 @@ class VideoAnalyzer:
                 image_path=str(frame.path),
                 model=self.model,
                 temperature=self.temperature,
-                num_predict=300
+                num_predict=500
             )
             logger.debug(f"Successfully analyzed frame {frame.number}")
             
@@ -77,7 +77,7 @@ class VideoAnalyzer:
             return analysis_result
         except Exception as e:
             logger.error(f"Error analyzing frame {frame.number}: {e}")
-            error_result = {"response": f"Error analyzing frame {frame.number}: {str(e)}"}
+            error_result = {"response": f"分析帧 {frame.number} 时出错: {str(e)}"}
             self.previous_analyses.append(error_result)
             return error_result
 
@@ -87,8 +87,8 @@ class VideoAnalyzer:
         frame_notes = []
         for i, (frame, analysis) in enumerate(zip(frames, frame_analyses)):
             frame_note = (
-                f"Frame {i} ({frame.timestamp:.2f}s):\n"
-                f"{analysis.get('response', 'No analysis available')}"
+                f"帧 {i} ({frame.timestamp:.2f}s):\n"
+                f"{analysis.get('response', '无分析内容')}"
             )
             frame_notes.append(frame_note)
         
@@ -110,12 +110,15 @@ class VideoAnalyzer:
         prompt = prompt.replace("{FIRST_FRAME}", first_frame_text)
         prompt = prompt.replace("{TRANSCRIPT}", transcript_text)
         
+        # 强制中文输出要求
+        prompt = f"{prompt}\n请根据以上信息，使用中文对整个视频进行总结和叙述。"
+        
         try:
             response = self.client.generate(
                 prompt=prompt,
                 model=self.model,
                 temperature=self.temperature,
-                num_predict=1000
+                num_predict=4096
             )
             logger.info("Successfully reconstructed video description")
             return {k: v for k, v in response.items() if k != "context"}

@@ -2,6 +2,9 @@ import requests
 import json
 import time
 import re
+import os
+import mimetypes
+import base64
 from typing import Optional, Dict, Any, Tuple
 from .llm_client import LLMClient
 import logging
@@ -31,11 +34,17 @@ class GenericOpenAIAPIClient(LLMClient):
         # Prepare request content
         if image_path:
             base64_image = self.encode_image(image_path)
+            
+            # 使用 mimetypes 自动探测类型
+            mime_type, _ = mimetypes.guess_type(image_path)
+            if not mime_type or not mime_type.startswith("image/"):
+                mime_type = "image/jpeg"
+                
             content = [
                 {"type": "text", "text": prompt},
                 {
                     "type": "image_url",
-                    "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}
+                    "image_url": {"url": f"data:{mime_type};base64,{base64_image}"}
                 }
             ]
         else:
@@ -53,8 +62,6 @@ class GenericOpenAIAPIClient(LLMClient):
         # Prepare headers
         headers = {
             "Authorization": f"Bearer {self.api_key}",
-            "HTTP-Referer": "https://github.com/byjlw/video-analyzer",
-            "X-Title": "Video Analyzer",
             "Content-Type": "application/json"
         }
 
@@ -62,7 +69,10 @@ class GenericOpenAIAPIClient(LLMClient):
         for attempt in range(self.max_retries):
             try:
                 response = requests.post(self.generate_url, headers=headers, json=data)
-                response.raise_for_status()
+                
+                if response.status_code != 200:
+                    logger.error(f"API Request failed with status {response.status_code}: {response.text}")
+                    response.raise_for_status()
                 
                 # Parse successful response
                 try:

@@ -1,65 +1,16 @@
-Frame Description Instructions
-Previous Notes Section
-[Previous frame descriptions will appear here in chronological order]
+你是视频字幕编辑，任务是如实描述当前帧。
 
+规则：
+1. 优先识别并原文引用画面中出现的所有文字（字幕、标语、水印等）
+2. 描述人物的外貌特征和正在做的动作
+3. 描述场景和背景环境
+4. 禁止主观解读、象征分析、哲学联想
+5. 水印（如"AI生成"）只需如实记录，不要赋予剧情含义
+6. 用中文，2-4句话，简洁直接
+
+上一帧内容：
 {PREVIOUS_FRAMES}
-
-Your Tasks
-You are viewing Frame [X] of this video sequence. Your goal is to document what you observe in a way that contributes to a coherent narrative of the entire video.
-Step 1: Quick Scan
-
-Watch for key changes from the previous descriptions
-Note any new elements or developments
-Identify if this is a transition moment or continuation
-
-Step 2: Document Your Frame
-Follow this structure for your notes:
-
-Setting/Scene (if changed from previous)
-
-Only describe if there's a notable change from previous frames
-Include any new environmental details
-
-
-Action/Movement
-
-What is happening in this specific moment?
-Focus on motion and changes
-Note the direction of movement
-Describe gestures or expressions
-
-
-New Information
-
-Document any new objects, people, or text that appears
-Note any changes in audio described in previous frames
-Record any new dialogue or text shown
-
-
-Continuity Points
-
-Connect your observations to previous notes
-Highlight how this frame advances the narrative
-Note if something mentioned in previous frames is no longer visible
-
-
-
-Writing Guidelines
-
-Use present tense
-Be specific and concise
-Avoid interpretation - stick to what you can see
-Use clear transitional phrases to connect to previous descriptions
-Include timestamp if available
 
 {prompt}
 
-Format Your Notes As:
-
-```
-Frame [X] If there are no existing frames you are Frame 0, otherwise you're the next frame
-[Your observations following the structure above]
-Key continuation points:
-- [List 2-3 elements that the next viewer should particularly watch for]
-
-```
+直接输出描述内容。

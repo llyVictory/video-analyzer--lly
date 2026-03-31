@@ -3,13 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Video Analyzer</title>
+    <title>Video Analyzer | Intelligent Insights</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Fira+Code&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <script>
+        window.DEFAULT_MODEL = "{{ default_model }}";
+    </script>
 </head>
 <body>
     <div class="container">
         <header>
             <h1>Video Analyzer</h1>
+            <p class="subtitle">Extract intelligent narratives from your video content</p>
         </header>
 
         <main>
@@ -19,119 +26,119 @@
                     <input type="file" id="fileInput" accept=".mp4,.avi,.mov,.mkv" hidden>
                     <div class="upload-content">
                         <svg class="upload-icon" viewBox="0 0 24 24">
-                            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                            <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
                         </svg>
-                        <p>Drag & drop video or click to upload</p>
-                        <p class="upload-formats">Supported formats: MP4, AVI, MOV, MKV</p>
+                        <p>Drop your video here or click to browse</p>
+                        <p class="upload-formats">MP4, AVI, MOV, MKV</p>
                     </div>
                 </div>
             </section>
 
             <!-- Configuration Section -->
             <section class="config-section" id="configSection" style="display: none;">
-                <h2>Analysis Configuration</h2>
+                <h2 style="margin-bottom: 2rem; font-size: 1.5rem;">Configuration</h2>
                 <form id="analysisForm">
-                    <!-- Client Configuration -->
-                    <div class="form-group">
-                        <label for="client">Client:</label>
-                        <select id="client" name="client">
-                            <option value="ollama">Ollama (Local)</option>
-                            <option value="openai_api">OpenAI API</option>
-                        </select>
-                    </div>
-
-                    <!-- Client-specific settings -->
-                    <div id="ollamaSettings">
+                    <div class="grid-form">
+                        <!-- Client Configuration -->
                         <div class="form-group">
-                            <label for="ollama-url">Ollama URL:</label>
-                            <input type="text" id="ollama-url" name="ollama-url" value="http://localhost:11434">
+                            <label for="client">Service Provider</label>
+                            <select id="client" name="client">
+                                <option value="modelscope">ModelScope (Cloud Inference)</option>
+                                <option value="ollama">Ollama (Local)</option>
+                                <option value="openai_api">Custom OpenAI API</option>
+                            </select>
+                        </div>
+
+                        <!-- Model Configuration -->
+                        <div class="form-group">
+                            <label for="model">Vision Model</label>
+                            <input type="text" id="model" name="model" value="{{ default_model }}" placeholder="{{ default_model }}">
+                        </div>
+
+                        <!-- Client-specific settings -->
+                        <div id="modelscopeSettings" class="full-width">
+                            <p style="color: var(--accent); font-size: 0.8rem; margin-bottom: 0.5rem;">Using system environment variables for ModelScope</p>
+                        </div>
+
+                        <div id="ollamaSettings" class="full-width">
+                            <div class="form-group">
+                                <label for="ollama-url">Ollama Endpoint</label>
+                                <input type="text" id="ollama-url" name="ollama-url" value="http://localhost:11434">
+                            </div>
+                        </div>
+
+                        <div id="openaiSettings" class="full-width">
+                            <div class="form-group" style="margin-bottom: 1rem;">
+                                <label for="api-key">API Key</label>
+                                <input type="password" id="api-key" name="api-key">
+                            </div>
+                            <div class="form-group">
+                                <label for="api-url">Base URL</label>
+                                <input type="text" id="api-url" name="api-url" placeholder="https://api.openai.com/v1">
+                            </div>
+                        </div>
+
+                        <!-- Processing Options -->
+                        <div class="form-group">
+                            <label for="max-frames">Limit Frames</label>
+                            <input type="number" id="max-frames" name="max-frames" value="30">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="whisper-model">Transcription</label>
+                            <select id="whisper-model" name="whisper-model">
+                                <option value="tiny">Tiny (Fast)</option>
+                                <option value="base">Base</option>
+                                <option value="medium" selected>Medium (Balanced)</option>
+                                <option value="large">Large (Accurate)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="device">Inference Device</label>
+                            <select id="device" name="device">
+                                <option value="cpu">CPU</option>
+                                <option value="cuda">NVIDIA GPU</option>
+                                <option value="mps">Apple Metal</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group grid-2">
+                            <div class="form-item">
+                                <label for="temperature">Creativity (Temperature): <span id="temperatureValue" class="value-badge">0.2</span></label>
+                                <input type="range" id="temperature" name="temperature" min="0" max="1" step="0.1" value="0.2">
+                            </div>
+                        </div>
+
+                        <div class="form-group full-width">
+                            <label for="prompt">Analysis Focus</label>
+                            <textarea id="prompt" name="prompt" placeholder="Describe specific details, actions, or events you want to analyze..."></textarea>
                         </div>
                     </div>
 
-                    <div id="openaiSettings" style="display: none;">
-                        <div class="form-group">
-                            <label for="api-key">API Key: *</label>
-                            <input type="password" id="api-key" name="api-key">
-                        </div>
-                        <div class="form-group">
-                            <label for="api-url">API URL: *</label>
-                            <input type="text" id="api-url" name="api-url" placeholder="https://openrouter.ai/api/v1">
-                        </div>
-                    </div>
-
-                    <!-- Model Configuration -->
-                    <div class="form-group">
-                        <label for="model">Vision Model:</label>
-                        <input type="text" id="model" name="model" placeholder="llama3.2-vision">
-                    </div>
-
-                    <!-- Processing Options -->
-                    <div class="form-group">
-                        <label for="duration">Duration (seconds):</label>
-                        <input type="number" id="duration" name="duration" min="1">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="max-frames">Max Frames:</label>
-                        <input type="number" id="max-frames" name="max-frames" min="1">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="whisper-model">Whisper Model:</label>
-                        <select id="whisper-model" name="whisper-model">
-                            <option value="tiny">Tiny</option>
-                            <option value="base">Base</option>
-                            <option value="small">Small</option>
-                            <option value="medium" selected>Medium</option>
-                            <option value="large">Large</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="language">Language:</label>
-                        <input type="text" id="language" name="language" placeholder="Auto-detect">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="device">Device:</label>
-                        <select id="device" name="device">
-                            <option value="cpu">CPU</option>
-                            <option value="cuda">CUDA (GPU)</option>
-                            <option value="mps">MPS (Apple Silicon)</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="prompt">Analysis Prompt:</label>
-                        <textarea id="prompt" name="prompt" placeholder="What would you like to know about the video?"></textarea>
-                    </div>
-
-                    <div class="form-group checkbox">
-                        <input type="checkbox" id="keep-frames" name="keep-frames">
-                        <label for="keep-frames">Keep Extracted Frames</label>
-                    </div>
-
-                    <!-- Command Preview -->
-                    <div class="command-preview">
-                        <h3>Command Preview</h3>
-                        <pre id="commandPreview"></pre>
-                    </div>
-
-                    <div class="form-actions">
-                        <button type="submit" class="primary-button">Start Analysis</button>
+                    <div style="margin-top: 2rem;">
+                        <button type="submit" class="btn btn-primary" id="submitBtn">
+                            <span>Analyze Video</span>
+                        </button>
                     </div>
                 </form>
             </section>
 
             <!-- Output Section -->
             <section class="output-section" id="outputSection" style="display: none;">
-                <h2>Analysis Output</h2>
-                <div class="output-container">
-                    <pre id="outputText"></pre>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <h2 style="font-size: 1.5rem;">Live Analysis Console</h2>
+                    <div id="statusIndicator" style="display: none;">
+                        <div class="loader"></div>
+                        <span style="color: var(--accent); font-weight: 600;">Processing...</span>
+                    </div>
                 </div>
-                <div class="output-actions" style="display: none;">
-                    <button id="downloadResults" class="secondary-button">Download Results</button>
-                    <button id="newAnalysis" class="primary-button">New Analysis</button>
+                <div class="console-wrapper">
+                    <div id="outputText"></div>
+                </div>
+                <div class="output-actions" style="display: none; margin-top: 2rem;">
+                    <button id="downloadResults" class="btn" style="background: var(--border); color: white;">Download JSON</button>
+                    <button id="newAnalysis" class="btn btn-primary" style="width: auto;">Restart</button>
                 </div>
             </section>
         </main>

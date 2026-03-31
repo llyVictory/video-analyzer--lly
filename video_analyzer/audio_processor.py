@@ -78,12 +78,13 @@ class AudioProcessor:
             return audio_path
         except subprocess.CalledProcessError as e:
             error_output = e.stderr.decode()
-            logger.error(f"FFmpeg error: {error_output}")
             
             # Check if error indicates no audio streams
             if "Output file does not contain any stream" in error_output:
-                logger.debug("No audio streams found in video - skipping audio extraction")
+                logger.info("Video does not contain audio streams - skipping audio extraction")
                 return None
+            
+            logger.error(f"FFmpeg error: {error_output}")
                 
             # If error is not about missing audio, try pydub as fallback
             logger.info("Falling back to pydub for audio extraction...")

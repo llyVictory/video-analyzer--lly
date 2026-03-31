@@ -9,6 +9,10 @@ import uuid
 from pathlib import Path
 from flask import Flask, render_template, request, jsonify, send_file, Response
 from werkzeug.utils import secure_filename
+from dotenv import load_dotenv
+
+load_dotenv()
+load_dotenv(dotenv_path=Path(__file__).resolve().parents[2] / "test-API-Inference" / ".env")
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -33,7 +37,9 @@ class VideoAnalyzerUI:
     def setup_routes(self):
         @self.app.route('/')
         def index():
-            return render_template('index.html')
+            # 获取环境变量中配置的模型，以便在 UI 中作为默认值展示
+            default_model = os.getenv("MODELSCOPE_MODEL_ID") or "Qwen/Qwen2-VL-7B-Instruct"
+            return render_template('index.html', default_model=default_model)
             
         @self.app.route('/upload', methods=['POST'])
         def upload_file():
@@ -83,7 +89,7 @@ class VideoAnalyzerUI:
             session = self.sessions[session_id]
             
             # Build command
-            cmd = ['video-analyzer', session['video_path']]
+            cmd = ['python3', '-u', '-m', 'video_analyzer.cli', session['video_path']]
             
             # Add optional parameters
             for param, value in request.form.items():
@@ -125,6 +131,7 @@ class VideoAnalyzerUI:
                         session['cmd'],
                         stdout=subprocess.PIPE,
                         stderr=subprocess.STDOUT,
+                        env=os.environ.copy(), # 显式透传当前进程的环境变量（包含已加载的 .env）
                         universal_newlines=True,
                         bufsize=1
                     )

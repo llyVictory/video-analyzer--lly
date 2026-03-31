@@ -16,7 +16,8 @@ class Frame:
 
 class VideoProcessor:
     # Class constants
-    FRAME_DIFFERENCE_THRESHOLD = 10.0
+    # 提高灵敏度，以便捕获默片中的微小气泡变化 (10.0 -> 3.0)
+    FRAME_DIFFERENCE_THRESHOLD = 3.0
     
     def __init__(self, video_path: Path, output_dir: Path, model: str):
         self.video_path = video_path
@@ -70,8 +71,8 @@ class VideoProcessor:
             max_frames if max_frames is not None else float('inf')
         ))
         
-        # Calculate adaptive sampling interval
-        sample_interval = max(1, total_frames // (target_frames * 2))
+        # 密集化采样扫描，确保短剧情不被遗漏
+        sample_interval = max(1, total_frames // (target_frames * 4))
         
         frame_candidates = []
         prev_frame = None

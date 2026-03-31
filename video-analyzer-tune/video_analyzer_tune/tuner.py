@@ -1,5 +1,6 @@
 """MIPROv2 optimization orchestration."""
 
+import os
 import logging
 from typing import List, Dict, Any, Tuple
 
@@ -44,24 +45,34 @@ class PromptTuner:
 
     def _configure_lm(self) -> None:
         """Configure the DSPy global LM from lm_config."""
-        client_type = self.lm_config.get("type", "ollama")
-        model = self.lm_config.get("model", "llama3.2-vision")
-
-        if client_type == "ollama":
-            lm = dspy.LM(
-                model=f"ollama/{model}",
-                api_base=self.lm_config.get("api_base", "http://localhost:11434"),
-                api_key="ollama",
-            )
-        else:  # openai_api — prefix with openai/ so LiteLLM routes correctly
+        # 兼容性处理：如果设置了 MODELSCOPE_API_KEY，则自动注入魔搭配置
+        ms_api_key = os.getenv("MODELSCOPE_API_KEY")
+        if ms_api_key:
+            model = os.getenv("MODELSCOPE_MODEL_ID") or "Qwen/Qwen2-VL-7B-Instruct"
             lm = dspy.LM(
                 model=f"openai/{model}",
-                api_base=self.lm_config.get("api_base"),
-                api_key=self.lm_config.get("api_key"),
+                api_base="https://api-inference.modelscope.cn/v1",
+                api_key=ms_api_key,
             )
+        else:
+            client_type = self.lm_config.get("type", "ollama")
+            model = self.lm_config.get("model", "llama3.2-vision")
+
+            if client_type == "ollama":
+                lm = dspy.LM(
+                    model=f"ollama/{model}",
+                    api_base=self.lm_config.get("api_base", "http://localhost:11434"),
+                    api_key="ollama",
+                )
+            else:  # openai_api — prefix with openai/ so LiteLLM routes correctly
+                lm = dspy.LM(
+                    model=f"openai/{model}",
+                    api_base=self.lm_config.get("api_base"),
+                    api_key=self.lm_config.get("api_key"),
+                )
 
         dspy.configure(lm=lm)
-        logger.info(f"Configured DSPy LM: {model} ({client_type})")
+        logger.info(f"Configured DSPy LM: {model}")
 
     def _build_dspy_examples(self, training_examples: List[TrainingExample]) -> List[dspy.Example]:
         """Convert TrainingExample objects to dspy.Example objects."""
