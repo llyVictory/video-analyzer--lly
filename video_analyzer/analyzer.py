@@ -25,13 +25,16 @@ class VideoAnalyzer:
         self.user_prompt = user_prompt  # Store user's question about the video
         self._load_prompts()
         self.previous_analyses = []
+
+    def _is_sensenova_client(self) -> bool:
+        return self.client.__class__.__name__ == "SenseNovaClient"
         
     def _format_user_prompt(self) -> str:
         """Format the user's prompt by adding prefix if not empty."""
         if self.user_prompt:
             return f"我想了解：{self.user_prompt}"
         return ""
-        
+
     def _load_prompts(self):
         """Load prompts from files."""
         self.frame_prompt = self.prompt_loader.get_by_index(0)  # Frame Analysis prompt
@@ -54,11 +57,26 @@ class VideoAnalyzer:
 
     def analyze_frame(self, frame: Frame) -> Dict[str, Any]:
         """Analyze a single frame using the LLM."""
-        # Replace {PREVIOUS_FRAMES} token with formatted previous analyses
-        # Replace tokens in the prompt template
-        prompt = self.frame_prompt.replace("{PREVIOUS_FRAMES}", self._format_previous_analyses())
-        prompt = prompt.replace("{prompt}", self._format_user_prompt())
-        prompt = f"{prompt}\n这是在 {frame.timestamp:.2f} 秒截取的第 {frame.number} 帧图片。\n请使用中文进行详细描述。"
+        if self._is_sensenova_client():
+            prompt = (
+                "请使用中文如实描述当前视频帧。\n"
+                "要求：\n"
+                "1. 优先逐字抄录画面中可见的文字；如果没有文字，明确写“无可见文字”。\n"
+                "2. 再描述人物外观、动作、表情。\n"
+                "3. 再描述场景与背景。\n"
+                "4. 禁止推测人物身份、剧情、动机、前因后果。\n"
+                "5. 只输出客观描述，控制在2到4句话。\n"
+            )
+            if self.user_prompt:
+                prompt += f"补充关注点：{self.user_prompt}\n"
+            prompt += f"这是在 {frame.timestamp:.2f} 秒截取的第 {frame.number} 帧图片。"
+            num_predict = 1024
+        else:
+            # Replace {PREVIOUS_FRAMES} token with formatted previous analyses
+            prompt = self.frame_prompt.replace("{PREVIOUS_FRAMES}", self._format_previous_analyses())
+            prompt = prompt.replace("{prompt}", self._format_user_prompt())
+            prompt = f"{prompt}\n这是在 {frame.timestamp:.2f} 秒截取的第 {frame.number} 帧图片。\n请使用中文进行详细描述。"
+            num_predict = 500
         
         try:
             response = self.client.generate(
@@ -66,8 +84,24 @@ class VideoAnalyzer:
                 image_path=str(frame.path),
                 model=self.model,
                 temperature=self.temperature,
-                num_predict=500
+                num_predict=num_predict
             )
+            if self._is_sensenova_client() and not response.get("response", "").strip():
+                logger.warning(f"SenseNova returned empty content for frame {frame.number}, retrying with an even shorter prompt")
+                retry_prompt = (
+                    "请用中文输出三行：\n"
+                    "画面文字：...\n"
+                    "人物动作：...\n"
+                    "场景背景：...\n"
+                    "不要推测剧情和身份。"
+                )
+                response = self.client.generate(
+                    prompt=retry_prompt,
+                    image_path=str(frame.path),
+                    model=self.model,
+                    temperature=0.0,
+                    num_predict=1024
+                )
             logger.debug(f"Successfully analyzed frame {frame.number}")
             
             # Store the analysis for future frames
@@ -104,7 +138,6 @@ class VideoAnalyzer:
         if transcript and transcript.text.strip():
             transcript_text = transcript.text
         
-        # Replace tokens in the prompt template
         prompt = self.video_prompt.replace("{prompt}", self._format_user_prompt())
         prompt = prompt.replace("{FRAME_NOTES}", analysis_text)
         prompt = prompt.replace("{FIRST_FRAME}", first_frame_text)

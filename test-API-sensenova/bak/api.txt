@@ -1,0 +1,606 @@
+
+
+
+
+如何使用【图文对话生成】
+在本入门教程中，我们将演示如何通过我们的 OpenAPI ，使用对话生成。
+
+
+一、调用前的准备工作
+首先，您需要完成一些调用前的准备工作，主要包括：
+
+“获取访问密钥”
+“生成API_TOKEN”
+
+二、获取您可用的模型列表
+调用 “获取模型列表” 接口，查看您可用的模型ID。 关于每个模型的介绍，可以查看 模型清单 。
+
+查询模型列表
+接口描述（Description）
+查询模型清单（基模型、用户的微调模型、以及Embedding模型），模型信息可参考模型清单
+
+
+请求地址（Request URL）
+[GET] https://api.sensenova.cn/v1/llm/models
+
+
+请求头（Request Header）
+无特殊Header，请参考接口鉴权
+
+
+请求示例（Request Example）
+curl --request GET "https://api.sensenova.cn/v1/llm/models" \
+  -H "Authorization: Bearer $API_TOKEN" \
+  -H "Content-Type: application/json"
+
+
+响应（Response）
+名称	类型	描述
+data	object[]	模型列表
+object	string	实体类型，枚举值，此处返回值为 LIST
+data 部分参数如下：
+名称	类型	描述
+id	string	模型ID
+object	string	实体类型，枚举值，此处返回值为 MODEL
+type	string	模型类型，枚举值
+- 基模型：BASE_MODEL
+- 微调模型：FINE_TUNED_MODEL
+owned_by	string	模型归属
+- 微调模型：账户ID（登录“用户控制台-账号中心”查看）
+permission	object[]	模型权限
+root	string	微调模型的根节点模型ID
+parent	string	微调模型的父节点模型ID
+created_at	string	模型创建时间，ISO 8601标准时间格式，精确到纳秒
+updated_at	string	模型更新时间，ISO 8601标准时间格式，精确到纳秒
+permission 部分参数如下：
+名称	类型	描述
+id	string	权限ID
+object	string	实体类型，枚举值，此处返回值为 MODEL_PERMISSION
+created_at	string	权限创建时间，ISO 8601标准时间格式，精确到纳秒
+allow_chat	boolean	此模型是否允许对话生成
+允许：true
+不允许：false
+allow_fine_tuning	boolean	此模型是否允许微调
+允许：true
+不允许：false
+allow_embedding	boolean	此模型是否允许Embeddings
+允许：true
+不允许：false
+allow_completion	boolean	此模型是否允许文本补全
+允许：true
+不允许：false
+allow_character	boolean	此模型是否允许拟人对话生成
+允许：true
+不允许：false
+
+响应示例（Response Example）
+{
+  "data": [
+    {
+      "id": "string",
+      "object": "MODEL",
+      "type": "string",
+      "owned_by": "string",
+      "permission": [
+           {
+              "id": "string",
+              "object": "MODEL_PERMISSION",
+              "created_at": "2023-06-28T17:23:01.243566533Z",
+              "allow_fine_tuning": false
+           }
+      ],
+      "root": "string",
+      "parent": "string",
+      "created_at": "2023-06-28T17:23:01.243566533Z",
+      "updated_at": "2023-06-28T17:23:01.243566533Z"
+    }
+  ],
+  "object": "LIST"
+}
+
+
+错误信息
+参考错误码
+
+
+三、上传图片
+调用 “创建并上传文件” 接口，上传成功后可以获得上传图片的文件ID（即file_id）。
+
+也可以在直接在content字段中，直接使用image_url，将要上传的图片URL放在请求体中
+
+
+
+
+# 创建文件上传接口文档
+创建并上传文件
+接口描述（Description）
+文件管理模块方便各个模块调用，通过创建并上传文件（二进制上传），实现文件的复用
+
+
+请求地址（Request URL）
+[POST] https://file.sensenova.cn/v1/files
+
+
+请求头（Request Header）
+无特殊Header，请参考接口鉴权
+
+
+请求体（Request Body）
+名称	类型	必须	默认值	可选值	描述
+description	string	否	-	-	文件描述
+长度不超过256字符
+scheme	string	是	-	枚举值，类型如下：
+用于语音快速复刻的音频文件格式：AUDIO_TTS_1
+多模态使用图片文件格式：MULTIMODAL_1
+多模态使用视频文件格式：MULTIMODAL_2
+知识库Json文件：KNOWLEDGE_BASE_1
+知识库其余格式文件：KNOWLEDGE_BASE_2
+Assistants模块文件：ASSISTANT_1	文件格式
+file	file	是	-	-	文件的二进制数据
+
+AUDIO_TTS_1 当前版本（Beta）格式限制：
+
+单声道，采样率 16000Hz，采样位数 pcm_s16le（小端模式16位有符号整数 采样）
+文件大小不能超过1M，音频时长不能超过30秒
+必须包含人声
+文件格式支持：
+.wav
+在上传文件成功且通过格式校验后，您可使用此图片的file_id来调用语音快速复刻接口，实现语音合成功能。
+
+
+MULTIMODAL_1 当前版本（Beta）格式限制：
+
+图片分辨率不超过13000 px * 13000 px
+文件大小不能超过10M
+文件格式支持：
+.jpg
+.png
+在上传文件成功且通过格式校验后，您可使用此图片的file_id来调用图文对话生成接口，实现图片识别、视觉对话等功能。
+
+
+MULTIMODAL_2 当前版本（Beta）格式限制：
+
+视频分辨率不能超过720p (1280 px * 800 px)，可支持720p、480p、360p、240p等
+fps不能超过 30帧/s
+文件大小不能超过20M，视频时长不能超过30s
+视频编码支持：
+h264
+h265
+文件格式支持：
+.mp4
+在上传文件成功且通过格式校验后，您可使用此视频文件的file_id来调用图文对话生成接口，实现视频理解、目标监控等功能。
+
+
+KNOWLEDGE_BASE_1 当前版本（Beta）格式限制：
+
+文件大小不能超过20M
+文件格式为 .json
+编码格式为 UTF-8
+内容需遵循以下格式
+{
+    "qa_lst": [ //问答对知识
+        {
+            "std_q": "xxx", //问题描述
+            "simi_qs": ["xxx", "xxx"], //相似问题描述
+            "answer": "xxx" //答案描述
+        },
+        {
+            "std_q": "xxx", //问题描述
+            "simi_qs": ["xxx", "xxx"], //相似问题描述
+            "answer": "xxx" //答案描述
+        }
+    ],
+    "text_lst": [ //文本知识，纯文本数据（当前版本（Beta），建议每条数据尽量是一个独立的语义主题，便于提升检索效率和效果）
+        "xxx",
+        "xxx"
+    ]
+}
+
+
+
+KNOWLEDGE_BASE_2 当前版本（Beta）格式限制：
+
+文件格式支持：
+.pdf
+.docx
+.xlsx
+.csv（编码格式为 UTF-8）
+PDF文件页数不能超过50页，大小不能超过20M
+WORD文件大小不能超过20M
+EXCEL文件不能超过3000行，大小不能超过20M
+在上传文件成功且通过格式校验后，您可使用此文件创建知识库。 在创建知识库时，系统会自动识别转换文件内容。目前支持文本、表格内容的识别转换。
+
+
+请求示例（Request Example）
+curl --request POST "https://file.sensenova.cn/v1/files" \
+  -H "Authorization: Bearer $API_TOKEN" \
+  -F 'description="string"' \
+  -F 'scheme="FINE_TUNE_1"' \
+  -F 'file=@"/D:/nova/dataset1.json"'
+
+
+响应（Response）
+名称	类型	描述
+id	string	文件ID
+description	string	文件描述
+scheme	string	文件格式
+created_at	string	文件创建时间，ISO 8601标准时间格式，精确到纳秒
+updated_at	string	文件更新时间，ISO 8601标准时间格式，精确到纳秒
+status	string	文件状态，枚举值
+未上传/上传中：NOTUPLOADED
+已上传（等待格式校验）：UPLOADED
+文件无效（格式校验不通过）：INVALID
+文件有效（格式校验通过）：VALID
+file_name	string	文件名称
+
+响应示例（Response Example）
+{
+  "id": "string",
+  "description": "string",
+  "scheme": "string",
+  "created_at": "2023-06-28T17:23:01.243566533Z",
+  "updated_at": "2023-06-28T17:23:01.243566533Z",
+  "status": "string",
+  "file_name": "string"
+}
+
+
+错误信息
+参考错误码
+
+
+
+四、使用图文对话生成
+调用 “图文对话生成” 接口，进行对话。其中，有几个参数的使用方法需要注意：
+
+请求体中的 model 参数
+直接填写您从第二步获取到的模型ID即可。
+
+请求体中的 messages 参数
+您可以在这个参数中填写您想跟大模型对话的内容，参数image_file_id直接填写您从第三步获取到的上传图片的文件ID即可，例如：
+
+
+SenseNova-V6.5-Pro
+融合模态
+模型版本	V6.5
+模型简介	日日新-商量融合模态大模型
+模型最大上下文长度限制	128K(131072)，单位 token
+模型权限	公开调用
+模型速率限制	60 RPM，128K TPM
+适配接口	首次使用指引、 图文对话生成
+
+图文对话生成
+接口描述（Description）
+最新更新：扩大了请求体的大小限制（45MB），同时支持了视频解析，参考video_url，video_file_id
+
+基于给定的聊天对话信息，创建模型响应，支持在会话历史中传图片或视频相关信息，图片和视频不可同时填写：
+
+如果传图片，最多可接收6张图片，出于响应速度和处理时长考虑，单次请求中的图片总大小要求小于45MB，超过限制则接口报错响应。
+如果传视频，最多可接收1个视频，同样要求文件大小小于45MB，超过限制则接口报错响应。
+如果同时传图片和视频，则接口报错响应。
+
+请求地址（Request URL）
+[POST] https://api.sensenova.cn/v1/llm/chat-completions
+
+
+请求头（Request Header）
+无特殊Header，请参考接口鉴权
+
+
+请求体（Request Body）
+请注意，单次请求，用户输入的token总数（即所有content的token总数） + 用户期望模型生成的最大token数（即max_new_tokens的值），必须 <= 模型最大上下文长度（不同模型的上下文长度支持情况，参考模型清单）。
+
+名称	类型	必须	默认值	可选值	描述
+model	string	是	-	参考模型清单)	模型ID
+messages	object[]	是	-	-	输入给模型的对话上下文，数组中的每个对象为聊天的上下文信息
+max_new_tokens	int	否	1024	[1,16384]	期望模型生成的最大token数（不同模型支持的上下文长度不同，因此最大值也不同，参考模型清单）
+repetition_penalty	float	否	1.05	(0,2]	重复惩罚系数，1代表不惩罚，大于1倾向于生成不重复token，小于1倾向于生成重复token，推荐使用范围为[1,1.2]
+stream	boolean	否	false	开启：true
+关闭：false	是否使用流式传输，如果开启，数据将按照data-only SSE（server-sent events）返回中间结果，并以 data: [DONE] 结束
+temperature	float	否	0.6	(0,2]	温度采样参数，大于1的值倾向于生成更加多样的回复，小于1倾向于生成更加稳定的回复（最多支持小数点后六位）
+top_p	float	否	0.95	(0,1)	核采样参数，解码生成token时，在概率和大于等于top_p的最小token集合中进行采样
+user	string	否	-	-	外部用户ID，应用开发者可将应用系统用户ID传入，方便追踪
+thinking	object	是	-	-	是否开启深度思考功能
+messages 部分参数如下：
+名称	类型	必须	默认值	可选值	描述
+role	string	是	-	枚举值
+user
+assistant
+system	消息作者的角色，枚举值。请注意，数组中最后一项必须为 user
+content	object[]	是	-	-	消息的内容
+type的枚举值：text image_url image_file_id image_base64 video_url``video_file_id
+
+
+thinking 部分参数如下：
+名称	类型	必须	默认值	可选值	描述
+enabled	boolean	是	true	true/false	是否开启深度思考
+
+content 文本部分，可复数，参数如下：
+名称	类型	必须	默认值	可选值	描述
+type	string	是	text	-	消息内容类型
+text	string	是	-	-	文本内容
+content 图像部分，可复数，以下参数格式三选一，不同图片信息可选择不同的参数格式，参数如下：
+名称	类型	必须	默认值	可选值	描述
+type	string	是	image_url	-	消息内容类型
+image_url	string	是	-	-	图片的url地址
+名称	类型	必须	默认值	可选值	描述
+type	string	是	image_file_id	-	消息内容类型
+image_file_id	string	是	-	-	通过文件管理接口上传的图片文件的file_id
+此处image_file_id源自 文件上传部分，描述了用户可以在ModelStudio自带的文件管理中，存储调用模型所需要的图片文件ID
+名称	类型	必须	默认值	可选值	描述
+type	string	是	image_base64	-	消息内容类型
+image_base64	string	是	-	-	图片经过base64编码后的内容
+content 视频部分，只能单数，以下参数格式二选一，不可与图像部分同时存在，参数如下：
+名称	类型	必须	默认值	可选值	描述
+type	string	是	video_url	-	消息内容类型
+video_url	string	是	-	-	视频文件的url地址
+名称	类型	必须	默认值	可选值	描述
+type	string	是	video_file_id	-	消息内容类型
+video_file_id	string	是	-	-	通过文件管理接口上传的视频文件的file_id
+此处video_file_id源自 文件上传部分，描述了用户可以在ModelStudio自带的文件管理中，存储调用模型所需要的视频文件ID
+
+请求示例（Request Example）
+curl --request POST "https://api.sensenova.cn/v1/llm/chat-completions" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $API_TOKEN" \
+  -d '{
+        "model": "string",
+        "messages": [
+          {
+            "role": "string",
+            "content": [
+              {
+                "type": "image_url",
+                "image_url": "string"
+              },
+              {
+                "type": "text",
+                "text": "string"
+              }
+            ]
+          }
+        ],
+        "thinking": {
+          "enabled": true},
+        "max_new_tokens": 1024,
+        "repetition_penalty": 1.0,
+        "stream": false,
+        "temperature": 0.8,
+        "top_p": 0.7,
+        "user": "string"
+  }'
+
+
+响应（Response）
+名称	类型	描述
+data	object	生成内容
+data 部分参数如下：
+名称	类型	描述
+id	string	消息ID
+choices	object[]	生成的回复列表
+usage	object	token使用量
+choices 部分参数如下：
+名称	类型	描述
+message	string	非流式请求时，生成的回复内容
+finish_reason	string	停止生成的原因，枚举值
+因结束符停止生成：stop
+因达到最大生成长度停止生成：length
+因触发敏感词停止生成： sensitive
+因触发模型上下文长度限制： context
+reasoning_content	string	深度思考的内容
+index	int	生成的回复序号
+role	string	回复消息的角色
+delta	string	流式请求时，生成的回复内容
+usage 部分参数如下：
+名称	类型	描述
+prompt_tokens	int	用户输入内容的token数
+knowledge_tokens	int	知识库内容输入模型的token数（仅在使用了知识库且检索到知识库内容的情况下不为0）
+completion_tokens	int	生成消息对应的token数
+total_tokens	int	总token数
+
+响应示例（Response Example）
+流式
+data:{"data":{"id":"123456789012345","choices":[{"delta":"","reasoning_content":"This","finish_reason":"","index": 0,"role":"assistant"}],"usage":{"prompt_tokens":6,"knowledge_tokens": 0,"completion_tokens":1,"total_tokens":7}},"status":{"code":0, "message": "ok"}}
+
+data:{"data":{"id":"123456789012345","choices":[{"delta":"","reasoning_content":"is","finish_reason":"","index": 0,"role":"assistant"}],"usage":{"prompt_tokens":6,"knowledge_tokens": 0,"completion_tokens":2,"total_tokens":8}},"status":{"code":0, "message": "ok"}}
+
+data:{"data":{"id":"123456789012345","choices":[{"delta":"","reasoning_content":"a","finish_reason":"","index": 0,"role":"assistant"}],"usage":{"prompt_tokens":6,"knowledge_tokens": 0,"completion_tokens":3,"total_tokens":9}},"status":{"code":0, "message": "ok"}}
+
+data:{"data":{"id":"123456789012345","choices":[{"delta":"","reasoning_content":"test","finish_reason":"","index": 0,"role":"assistant"}],"usage":{"prompt_tokens":6,"knowledge_tokens": 0,"completion_tokens":4,"total_tokens":10}},"status":{"code":0, "message": "ok"}}
+
+data:{"data":{"id":"123456789012345","choices":[{"delta":"","reasoning_content":"!","finish_reason":"","index": 0,"role":"assistant"}],"usage":{"prompt_tokens":6,"knowledge_tokens": 0,"completion_tokens":5,"total_tokens":11}},"status":{"code":0, "message": "ok"}}
+
+data:{"data":{"id":"123456789012345","choices":[{"delta":"This","reasoning_content":"","finish_reason":"","index": 0,"role":"assistant"}],"usage":{"prompt_tokens":6,"knowledge_tokens": 0,"completion_tokens":1,"total_tokens":7}},"status":{"code":0, "message": "ok"}}
+
+data:{"data":{"id":"123456789012345","choices":[{"delta":"is","reasoning_content":"","finish_reason":"","index": 0,"role":"assistant"}],"usage":{"prompt_tokens":6,"knowledge_tokens": 0,"completion_tokens":2,"total_tokens":8}},"status":{"code":0, "message": "ok"}}
+
+data:{"data":{"id":"123456789012345","choices":[{"delta":"a","reasoning_content":"","finish_reason":"","index": 0,"role":"assistant"}],"usage":{"prompt_tokens":6,"knowledge_tokens": 0,"completion_tokens":3,"total_tokens":9}},"status":{"code":0, "message": "ok"}}
+
+data:{"data":{"id":"123456789012345","choices":[{"delta":"test","reasoning_content":"","finish_reason":"","index": 0,"role":"assistant"}],"usage":{"prompt_tokens":6,"knowledge_tokens": 0,"completion_tokens":4,"total_tokens":10}},"status":{"code":0, "message": "ok"}}
+
+data:{"data":{"id":"123456789012345","choices":[{"delta":"!","reasoning_content":"","finish_reason":"","index": 0,"role":"assistant"}],"usage":{"prompt_tokens":6,"knowledge_tokens": 0,"completion_tokens":5,"total_tokens":11}},"status":{"code":0, "message": "ok"}}
+
+data:{"data":{"id":"123456789012345","choices":[{"delta":"","reasoning_content":"","finish_reason":"stop","index": 0,"role":"assistant"}],"usage":{"prompt_tokens":6,"knowledge_tokens": 0,"completion_tokens":6,"total_tokens":13}},"status":{"code":0, "message": "ok"}}
+
+data:[DONE]
+
+
+
+非流式
+{
+  "data": {
+    "id": "4b44cd86cd2c000",
+    "choices": [
+      {
+        "message": "This is a test!",
+        "reasoning_content": "This is a test!",
+        "finish_reason": "stop",
+        "index": 0,
+        "role": "string"
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 6,
+      "knowledge_tokens": 0,
+      "completion_tokens": 6,
+      "total_tokens": 12
+    }
+  }
+}
+
+
+错误信息
+参考错误码
+
+
+
+接口鉴权
+注意：平台已支持API Key调用，请用户保管好自己的API Key，在ModelStudio 管理中心 API Key管理进行密钥的创建操作
+
+请求头（Request Header）
+在请求头里，添加 Authorization 字段，如下所示：
+
+Authorization: Bearer $API_TOKEN //$API_TOKEN 可直接用$API_KEY替换
+
+
+Authorization 生成方式
+遵循JWT（Json Web Token, RFC 7519）标准。
+
+JWT由三个部分组成：Header、Payload、Signature。
+
+JWT Header 的构建方式
+{"typ":"JWT","alg":"HS256"}  # 手动生成JWT，JWT Header中alg填写HS256
+
+JWT Payload 的构建方式
+名称	类型	必须	描述
+iss	String	是	AK（Access Key ID，获取方式请参考使用手册-“获取访问密钥”）
+exp	Integer	是	超时时间（Unix时间戳，单位秒）
+nbf	Integer	否	生效时间（Unix时间戳，单位秒），在此时间前无法使用
+JWT Signature 的构建方式
+SK（Access Key Secret，获取方式请参考使用手册-“获取访问密钥”）
+
+
+生成示例
+1 Python Sample Code
+首先，您可以通过 pip 安装的方式将 PyJWT 安装到您的环境中，在命令行中执行如下命令：
+
+pip3 install PyJWT==2.6.0
+
+然后，可按照以下样例生成 Authorization：
+
+import time
+import jwt
+
+ak = "" # 填写您的ak
+sk = "" # 填写您的sk
+
+def encode_jwt_token(ak, sk):
+    headers = {
+        "alg": "HS256",
+        "typ": "JWT"
+    }
+    payload = {
+        "iss": ak,
+        "exp": int(time.time()) + 1800, # 填写您期望的有效时间，此处示例代表当前时间+30分钟
+        "nbf": int(time.time()) - 5 # 填写您期望的生效时间，此处示例代表当前时间-5秒
+    }
+    token = jwt.encode(payload, sk, headers=headers)
+    return token
+
+authorization = encode_jwt_token(ak, sk)
+print(authorization) # 打印生成的API_TOKEN
+
+
+错误码：
+错误码
+返回头（Response Header）
+请求的返回头部信息中，会包含 HTTP 状态码 和 x-request-id ，用途如下：
+
+HTTP 状态码 ：用于标识请求的状态信息，跟返回体错误信息里的 error.code存在映射关系，具体见下方映射关系表
+x-request-id ：每个请求唯一ID，用于跟踪请求情况及问题排查
+
+返回体（Response Body）
+接口调用报错时，返回示例：
+
+{
+    "error":{
+        "code": 0, //错误码
+        "message": "string", //错误信息
+        "details": [] //错误细节
+    }
+}
+
+其中， code 跟 HTTP 状态码 的映射关系如下：
+
+code	HTTP 状态码	解释	报错原因	解决方案
+-	200	请求成功	-	-
+-	302	重定向	-	-
+1	408	取消调用	客户端取消调用；	-
+2	500	内部错误	服务器内部错误；	稍后重试，或者联系我们
+3	400	参数无效	请求的参数名不对；
+请求的参数值不符合校验规则；	检查请求参数是否正确
+4	504	调用超时	服务器内部超时；	稍后重试，或者联系我们
+5	404	资源无效	请求的资源是无效的or model not found；	检查请求的模型，在模型服务管理的状态是否为开通，若没有开通，或看不到此调用的模型ID，即没有调用权限，可联系大装置客服处理
+6	409	资源冲突	请求的资源是重复的；	检查请求参数
+7	403	没有权限	账户没有访问对应资源权限；	检查账号具备的接口访问权限（登录“用户控制台-订阅中心”查看），或者检查请求的参数值是否被允许
+8	429	超出限制	请求的速度太快；
+请求的资源数量超过限制；	调整您的请求，参考每个模块的接口列表里的调用限制，以及接口文档里对于资源的数量限制
+9	400	请求失败	请求无法在当前系统状态下执行；	稍后重试，或者联系我们
+10	409	并发冲突	并发冲突，例如读取/修改/写入错误；	稍后重试，或者联系我们
+11	400	范围无效	请求指定的范围无效；	检查请求参数
+12	501	未实现	请求的方法/功能未实现；	检查请求的方法或路径
+13	500	内部错误	服务器内部错误；	稍后重试，或者联系我们
+14	503	内部错误	服务正在维护，暂不可用；	稍后重试，或者联系我们
+15	500	内部错误	服务器内部错误；	稍后重试，或者联系我们
+16	401	鉴权失败	请求的API鉴权信息不正确，可能是令牌错误，或者生成的 API_TOKEN 过期；	检查传入的接口鉴权信息是否正确
+17	400	参数无效	对话生成触发模型上下文长度限制；	检查messages中的输入tokens+ max_new_tokens≤ 模型上下文长度限制
+18	400	参数无效	输入/输出内容触发平台安全策略；	检查messages中的输入内容，尝试更换内容重新请求
+
+
+
+
+
+图片识别：
+苹果图片
+
+{
+    "messages": [
+        {
+            "role": "user",
+            "content": [
+              {
+                "type": "image_file_id",
+                "image_file_id": "file_id"
+              },
+              {
+                "type": "text",
+                "text": "这是什么？"
+              }
+            ]
+        }
+    ]
+}
+
+视觉对话：
+小猫图片
+
+{
+    "messages": [
+        {
+            "role": "user",
+            "content": [
+              {
+                "type": "image_file_id",
+                "image_file_id": "file_id"
+              },
+              {
+                "type": "text",
+                "text": "图片中的小猫在干什么？"
+              }
+            ]
+        }
+    ]
+}
+
+
+到这里，您已经完成了一个简单的多模态对话生成的使用，如果过程中出现了以上文档没有解释到的其他问题，欢迎您随时联系我们！

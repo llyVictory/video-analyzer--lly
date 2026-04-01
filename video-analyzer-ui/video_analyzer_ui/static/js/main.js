@@ -14,7 +14,6 @@ const newAnalysis = document.getElementById('newAnalysis');
 const clientSelect = document.getElementById('client');
 const ollamaSettings = document.getElementById('ollamaSettings');
 const openaiSettings = document.getElementById('openaiSettings');
-const modelscopeSettings = document.getElementById('modelscopeSettings');
 const statusIndicator = document.getElementById('statusIndicator');
 
 // Event Listeners
@@ -25,9 +24,6 @@ dropZone.addEventListener('drop', handleDrop);
 fileInput.addEventListener('change', handleFileSelect);
 analysisForm.addEventListener('submit', handleAnalysis);
 clientSelect.addEventListener('change', toggleClientSettings);
-document.getElementById('temperature').addEventListener('input', (e) => {
-    document.getElementById('temperatureValue').textContent = e.target.value;
-});
 downloadResults.addEventListener('click', downloadAnalysisResults);
 newAnalysis.addEventListener('click', resetUI);
 
@@ -176,7 +172,6 @@ function toggleClientSettings() {
     
     ollamaSettings.style.display = 'none';
     openaiSettings.style.display = 'none';
-    modelscopeSettings.style.display = 'none';
     
     if (client === 'ollama') {
         ollamaSettings.style.display = 'block';
@@ -185,8 +180,9 @@ function toggleClientSettings() {
         openaiSettings.style.display = 'block';
         modelInput.value = 'gpt-4-vision-preview';
     } else if (client === 'modelscope') {
-        modelscopeSettings.style.display = 'block';
         modelInput.value = window.DEFAULT_MODEL || 'Qwen/Qwen2-VL-7B-Instruct';
+    } else if (client === 'sensenova') {
+        modelInput.value = window.DEFAULT_SENSENOVA_MODEL || 'SenseNova-V6-5-Pro-20251215';
     }
 }
 

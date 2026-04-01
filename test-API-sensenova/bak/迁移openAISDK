@@ -1,0 +1,56 @@
+请求
+
+curl --request POST \
+  --url https://api.sensenova.cn/compatible-mode/v2/chat/completions \
+  --header 'Authorization: Bearer {api-key}' \
+  --header 'content-type: application/json' \
+  --data '{
+    "model": "SenseNova-V6-5-Pro",
+    "messages": [
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "text",
+                    "text": "图片里有什么"
+                },
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": "https://img0.baidu.com/it/u=3775751201,1094020238&fm=253&fmt=auto&app=138&f=JPEG?w=500&h=615"
+                    }
+                }
+            ]
+        }
+    ],
+    "temperature": 0.8,
+    "stream": false,
+    "max_completion_tokens": 1024,
+    "reasoning_effort": "low",
+    "frequency_penalty": 1.05,
+    "top_p": 0.7
+}'
+
+响应
+{
+    "id": "5f0eef95-6fc0-4529-bdf7-1549bcfff26f",
+    "created": 1758783696,
+    "model": "SenseNova-V6-5-Pro",
+    "object": "chat.completion",
+    "choices": [
+        {
+            "index": 0,
+            "message": {
+                "role": "assistant",
+                "content": "图片中主要包含以下内容：\n\n1. **主体小猫**：\n   - 一只小橘猫占据画面中心，毛色呈现橙白相间的渐变效果\n   - 竖立的三角形耳朵透着粉嫩内耳廓，蓝色虹膜的大眼睛如琉璃般透亮\n   - 呈现拟人化的呆萌表情：微张的粉嫩鼻翼与半露的小乳牙形成\"懵懂脸\"\n   - 前肢呈标准坐姿并拢，绒毛蓬松的尾巴自然蜷曲在身侧\n\n2. **环境要素**：\n   - 虚化的背景中可见原木色栅栏与蕨类植物剪影\n   - 晨昏时段的45度侧光在猫毛边缘形成金色轮廓光\n   - 空气中漂浮的微尘在逆光中形成丁达尔效应光束\n\n3. **后期处理痕迹**：\n   - 右下角带有\"@修图师美图秀秀\"的水印字样\n   - 猫眼部位有明显的眼神光增强处理\n   - 毛色饱和度经过优化，橙色部分呈现奶油质感\n\n该影像通过浅景深突出主体，结合柔焦滤镜营造出童话般的视觉效果，整体呈现专业宠物摄影的典型特征。"
+            },
+            "finish_reason": "stop"
+        }
+    ],
+    "usage": {
+        "prompt_tokens": 260,
+        "completion_tokens": 654,
+        "total_tokens": 914
+    },
+    "service_tier": "default"
+}

@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 load_dotenv(dotenv_path=Path(__file__).resolve().parents[2] / "test-API-Inference" / ".env")
+load_dotenv(dotenv_path=Path(__file__).resolve().parents[2] / "test-API-sensenova" / ".env")
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -39,7 +40,16 @@ class VideoAnalyzerUI:
         def index():
             # 获取环境变量中配置的模型，以便在 UI 中作为默认值展示
             default_model = os.getenv("MODELSCOPE_MODEL_ID") or "Qwen/Qwen2-VL-7B-Instruct"
-            return render_template('index.html', default_model=default_model)
+            sensenova_default_model = (
+                os.getenv("SENSENOVA_OPENAI_MODEL_ID")
+                or os.getenv("SENSENOVA_MODEL_ID")
+                or "SenseNova-V6-5-Pro-20251215"
+            )
+            return render_template(
+                'index.html',
+                default_model=default_model,
+                sensenova_default_model=sensenova_default_model,
+            )
             
         @self.app.route('/upload', methods=['POST'])
         def upload_file():

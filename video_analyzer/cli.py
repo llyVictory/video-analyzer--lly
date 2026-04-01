@@ -16,6 +16,7 @@ from .analyzer import VideoAnalyzer
 from .audio_processor import AudioProcessor, AudioTranscript
 from .clients.ollama import OllamaClient
 from .clients.generic_openai_api import GenericOpenAIAPIClient
+from .clients.sensenova import SenseNovaClient
 
 # Initialize logger at module level
 logger = logging.getLogger(__name__)
@@ -55,6 +56,8 @@ def create_client(config: Config):
         return OllamaClient(client_config["url"])
     elif client_type == "openai_api":
         return GenericOpenAIAPIClient(client_config["api_key"], client_config["api_url"])
+    elif client_type == "sensenova":
+        return SenseNovaClient(client_config["api_key"], client_config["api_url"])
     else:
         raise ValueError(f"Unknown client type: {client_type}")
 

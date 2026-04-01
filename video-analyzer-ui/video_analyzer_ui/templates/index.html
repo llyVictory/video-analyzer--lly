@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     <script>
         window.DEFAULT_MODEL = "{{ default_model }}";
+        window.DEFAULT_SENSENOVA_MODEL = "{{ sensenova_default_model }}";
     </script>
 </head>
 <body>
@@ -44,6 +45,7 @@
                             <label for="client">Service Provider</label>
                             <select id="client" name="client">
                                 <option value="modelscope">ModelScope (Cloud Inference)</option>
+                                <option value="sensenova">SenseNova (Compatible Mode)</option>
                                 <option value="ollama">Ollama (Local)</option>
                                 <option value="openai_api">Custom OpenAI API</option>
                             </select>
@@ -56,10 +58,6 @@
                         </div>
 
                         <!-- Client-specific settings -->
-                        <div id="modelscopeSettings" class="full-width">
-                            <p style="color: var(--accent); font-size: 0.8rem; margin-bottom: 0.5rem;">Using system environment variables for ModelScope</p>
-                        </div>
-
                         <div id="ollamaSettings" class="full-width">
                             <div class="form-group">
                                 <label for="ollama-url">Ollama Endpoint</label>
@@ -79,40 +77,10 @@
                         </div>
 
                         <!-- Processing Options -->
-                        <div class="form-group">
-                            <label for="max-frames">Limit Frames</label>
-                            <input type="number" id="max-frames" name="max-frames" value="30">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="whisper-model">Transcription</label>
-                            <select id="whisper-model" name="whisper-model">
-                                <option value="tiny">Tiny (Fast)</option>
-                                <option value="base">Base</option>
-                                <option value="medium" selected>Medium (Balanced)</option>
-                                <option value="large">Large (Accurate)</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="device">Inference Device</label>
-                            <select id="device" name="device">
-                                <option value="cpu">CPU</option>
-                                <option value="cuda">NVIDIA GPU</option>
-                                <option value="mps">Apple Metal</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group grid-2">
-                            <div class="form-item">
-                                <label for="temperature">Creativity (Temperature): <span id="temperatureValue" class="value-badge">0.2</span></label>
-                                <input type="range" id="temperature" name="temperature" min="0" max="1" step="0.1" value="0.2">
-                            </div>
-                        </div>
-
                         <div class="form-group full-width">
                             <label for="prompt">Analysis Focus</label>
-                            <textarea id="prompt" name="prompt" placeholder="Describe specific details, actions, or events you want to analyze..."></textarea>
+                            <textarea id="prompt" name="prompt" placeholder="例如：重点分析人物关系变化；只关注画面中的字幕和标语...."></textarea>
+                            <p style="color: var(--accent); font-size: 0.8rem; margin-top: 0.5rem;">可选。适合填写：重点分析人物关系变化；只关注画面中的字幕和标语....</p>
                         </div>
                     </div>
 

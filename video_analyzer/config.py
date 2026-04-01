@@ -5,14 +5,40 @@ from typing import Any
 import logging
 import pkg_resources
 import os
+import time
+import jwt
 from dotenv import load_dotenv
 
 # 依照官方设计文档，我们采用灵活的环境变量加载方式
-# 尝试加载当前根目录下的 .env 以及 test-API-Inference 下的 .env（如果存在）
+# 尝试加载当前根目录下的 .env 以及测试目录下的 .env（如果存在）
 load_dotenv()
 load_dotenv(dotenv_path=Path(__file__).parents[1] / "test-API-Inference" / ".env")
+load_dotenv(dotenv_path=Path(__file__).parents[1] / "test-API-sensenova" / ".env")
 
 logger = logging.getLogger(__name__)
+
+
+def build_sensenova_auth_token() -> str | None:
+    api_key = os.getenv("SENSENOVA_API_KEY")
+    if api_key:
+        return api_key.strip()
+
+    ak = os.getenv("SENSENOVA_AK")
+    sk = os.getenv("SENSENOVA_SK")
+    if not ak or not sk:
+        return None
+
+    payload = {
+        "iss": ak,
+        "exp": int(time.time()) + 1800,
+        "nbf": int(time.time()) - 5,
+    }
+    return jwt.encode(
+        payload,
+        sk,
+        algorithm="HS256",
+        headers={"alg": "HS256", "typ": "JWT"},
+    )
 
 class Config:
     def __init__(self, config_dir: str = "config"):
@@ -73,6 +99,22 @@ class Config:
                     self.config["clients"]["openai_api"]["model"] = "Qwen/Qwen2-VL-7B-Instruct"
             # --- END: MODELSCOPE INJECTION ---
 
+            sensenova_api_key = build_sensenova_auth_token()
+            if sensenova_api_key:
+                logger.info("检测到 SenseNova 环境变量，已启用 sensenova 预设。")
+                if "sensenova" not in self.config["clients"]:
+                    self.config["clients"]["sensenova"] = {}
+                self.config["clients"]["sensenova"]["api_key"] = sensenova_api_key
+                self.config["clients"]["sensenova"]["api_url"] = "https://api.sensenova.cn/v1/llm/chat-completions"
+                sensenova_model = (
+                    os.getenv("SENSENOVA_OPENAI_MODEL_ID")
+                    or os.getenv("SENSENOVA_MODEL_ID")
+                )
+                if sensenova_model:
+                    self.config["clients"]["sensenova"]["model"] = sensenova_model.strip()
+                elif not self.config["clients"]["sensenova"].get("model"):
+                    self.config["clients"]["sensenova"]["model"] = "SenseNova-V6-5-Pro-20251215"
+
             # Ensure prompts is a list
             if not isinstance(self.config.get("prompts", []), list):
                 logger.warning("Prompts in config is not a list, setting to empty list")
@@ -107,6 +149,18 @@ class Config:
                         if ms_model:
                             logger.info(f"Using Model ID from ENV: {ms_model}")
                             self.config["clients"]["openai_api"]["model"] = ms_model
+                    elif value == "sensenova":
+                        self.config["clients"]["default"] = "sensenova"
+                        if "sensenova" not in self.config["clients"]:
+                            self.config["clients"]["sensenova"] = {}
+                        self.config["clients"]["sensenova"]["api_url"] = "https://api.sensenova.cn/v1/llm/chat-completions"
+                        sensenova_model = (
+                            os.getenv("SENSENOVA_OPENAI_MODEL_ID")
+                            or os.getenv("SENSENOVA_MODEL_ID")
+                        )
+                        if sensenova_model:
+                            logger.info(f"Using SenseNova Model ID from ENV: {sensenova_model}")
+                            self.config["clients"]["sensenova"]["model"] = sensenova_model.strip()
                     else:
                         self.config["clients"]["default"] = value
                 elif key == "ollama_url":
@@ -143,6 +197,13 @@ class Config:
             ms_model = os.getenv("MODELSCOPE_MODEL_ID")
             if ms_model:
                 self.config["clients"]["openai_api"]["model"] = ms_model.strip()
+        if self.config["clients"]["default"] == "sensenova":
+            sensenova_api_key = build_sensenova_auth_token()
+            if sensenova_api_key:
+                self.config["clients"]["sensenova"]["api_key"] = sensenova_api_key
+            sensenova_model = os.getenv("SENSENOVA_OPENAI_MODEL_ID") or os.getenv("SENSENOVA_MODEL_ID")
+            if sensenova_model:
+                self.config["clients"]["sensenova"]["model"] = sensenova_model.strip()
 
     def save_user_config(self):
         """Save current configuration to user config file."""
@@ -177,6 +238,19 @@ def get_client(config: Config) -> dict:
             )
         if not api_url:
             raise ValueError("API URL 缺失，请检查配置或提供 --api-url")
+        return {
+            "api_key": api_key,
+            "api_url": api_url
+        }
+    elif client_type == "sensenova":
+        api_key = build_sensenova_auth_token() or client_config.get("api_key")
+        api_url = client_config.get("api_url") or "https://api.sensenova.cn/v1/llm/chat-completions"
+        if not api_key:
+            raise ValueError(
+                "SenseNova API KEY 缺失！请确保至少满足以下任一条件:\n"
+                "1. 在 .env 中设置 SENSENOVA_API_KEY\n"
+                "2. 或者同时设置 SENSENOVA_AK 与 SENSENOVA_SK"
+            )
         return {
             "api_key": api_key,
             "api_url": api_url
