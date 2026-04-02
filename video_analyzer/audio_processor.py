@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import subprocess
 import torch
 from pydub import AudioSegment
+import gc
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

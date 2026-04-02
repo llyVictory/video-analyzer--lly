@@ -4,6 +4,7 @@ import json
 import logging
 import shutil
 import sys
+import gc
 import time
 from typing import Optional
 import torch
@@ -153,8 +154,16 @@ def main():
                 transcript = audio_processor.transcribe(audio_path)
                 if transcript is None:
                     logger.warning("Could not generate reliable transcript. Proceeding with video analysis only.")
+                
+                # --- 内存优化：显式回收音频处理器 (Whisper 模型) ---
+                logger.info("音频转录完成，正在释放模型内存以备画面分析...")
+                del audio_processor
+                gc.collect()
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                logger.info("音频处理器内存已释放。")
             
-            logger.info(f"Extracting frames from video using model {model}...")
+            logger.info(f"正在从视频中提取关键帧画面，采样密度: {config.get('frames', {}).get('per_minute', 60)} 帧/分钟...")
             processor = VideoProcessor(
                 video_path, 
                 output_dir / "frames", 
@@ -165,6 +174,7 @@ def main():
                 duration=config.get("duration"),
                 max_frames=args.max_frames
             )
+            logger.info(f"关键帧提取完成，共计 {len(frames)} 帧。")
             
         # Stage 2: Frame Analysis
         if args.start_stage <= 2:
