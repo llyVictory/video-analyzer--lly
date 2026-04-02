@@ -195,7 +195,7 @@ class VideoAnalyzerUI:
             analysis_file = results_dir / 'analysis.json'
             default_output = Path('output/analysis.json')
             
-            if default_output.exists():
+            if not analysis_file.exists() and default_output.exists():
                 logger.debug(f"Found analysis file in default output directory: {default_output}")
                 try:
                     # Move the file to our results directory

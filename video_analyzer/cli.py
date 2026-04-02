@@ -21,6 +21,17 @@ from .clients.sensenova import SenseNovaClient
 # Initialize logger at module level
 logger = logging.getLogger(__name__)
 
+
+def build_video_signature(video_path: Path) -> dict:
+    """Build a stable signature used to validate checkpoint compatibility."""
+    resolved = video_path.resolve()
+    stat = resolved.stat()
+    return {
+        "path": str(resolved),
+        "size_bytes": stat.st_size,
+        "mtime_ns": stat.st_mtime_ns,
+    }
+
 def get_log_level(level_str: str) -> int:
     """Convert string log level to logging constant."""
     levels = {
@@ -105,6 +116,7 @@ def main():
     # Initialize components
     video_path = Path(args.video_path)
     output_dir = Path(config.get("output_dir"))
+    video_signature = build_video_signature(video_path)
     client = create_client(config)
     model = get_model(config)
     prompt_loader = PromptLoader(config.get("prompt_dir"), config.get("prompts", []))
@@ -173,11 +185,21 @@ def main():
                 try:
                     with open(results_file) as f:
                         data = json.load(f)
-                        # 建立快速索引：timestamp -> analysis
-                        for fa in data.get("frame_analyses", []):
-                            if "timestamp" in fa:
-                                existing_results[f"{fa['timestamp']:.3f}"] = fa
-                    logger.info(f"Detected existing analysis.json, found {len(existing_results)} completed frames.")
+                        metadata = data.get("metadata", {})
+                        existing_signature = metadata.get("source_video")
+                        if existing_signature == video_signature:
+                            # 建立快速索引：timestamp -> analysis
+                            for fa in data.get("frame_analyses", []):
+                                if "timestamp" in fa:
+                                    existing_results[f"{fa['timestamp']:.3f}"] = fa
+                            logger.info(
+                                "Detected existing analysis.json for the same video, found %d completed frames.",
+                                len(existing_results),
+                            )
+                        else:
+                            logger.warning(
+                                "Ignoring existing analysis.json because it belongs to a different source video."
+                            )
                 except Exception as e:
                     logger.warning(f"Could not load existing analysis for checkpoint: {e}")
 
@@ -201,7 +223,11 @@ def main():
                 # --- 增量存盘 (Incremental Save) ---
                 # 每跑一帧都存一下，防止后面又被 429
                 temp_results = {
-                    "metadata": {"frames_processed": len(frame_analyses), "status": "incomplete"},
+                    "metadata": {
+                        "frames_processed": len(frame_analyses),
+                        "status": "incomplete",
+                        "source_video": video_signature,
+                    },
                     "frame_analyses": frame_analyses
                 }
                 with open(results_file, "w") as f:
@@ -232,11 +258,22 @@ def main():
                 "frames_processed": min(len(frames), args.max_frames),
                 "start_stage": args.start_stage,
                 "audio_language": transcript.language if transcript else None,
-                "transcription_successful": transcript is not None
+                "transcription_successful": transcript is not None,
+                "transcript_used_in_description": bool(transcript and transcript.text.strip()),
+                "transcript_word_count": transcript.word_count if transcript else 0,
+                "transcript_avg_word_probability": (
+                    transcript.average_word_probability if transcript else None
+                ),
+                "source_video": video_signature,
             },
             "transcript": {
                 "text": transcript.text if transcript else None,
-                "segments": transcript.segments if transcript else None
+                "segments": transcript.segments if transcript else None,
+                "word_count": transcript.word_count if transcript else None,
+                "average_word_probability": (
+                    transcript.average_word_probability if transcript else None
+                ),
+                "speech_duration": transcript.speech_duration if transcript else None,
             } if transcript else None,
             "frame_analyses": frame_analyses,
             "video_description": video_description

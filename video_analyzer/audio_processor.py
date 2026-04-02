@@ -15,6 +15,9 @@ class AudioTranscript:
     text: str
     segments: List[Dict[str, Any]]
     language: str
+    word_count: int = 0
+    average_word_probability: float | None = None
+    speech_duration: float = 0.0
 
 class AudioProcessor:
     def __init__(self, 
@@ -145,11 +148,38 @@ class AudioProcessor:
                 }
                 for segment in segments_list
             ]
+
+            word_probabilities = [
+                word["probability"]
+                for segment in segment_data
+                for word in segment["words"]
+                if word.get("probability") is not None
+            ]
+            average_word_probability = (
+                sum(word_probabilities) / len(word_probabilities)
+                if word_probabilities else None
+            )
+            speech_duration = sum(
+                max(0.0, segment["end"] - segment["start"])
+                for segment in segment_data
+            )
+            word_count = sum(len(segment["words"]) for segment in segment_data)
+
+            logger.info(
+                "Transcript accepted: language=%s, segments=%d, words=%d, avg_word_probability=%s",
+                info.language,
+                len(segment_data),
+                word_count,
+                f"{average_word_probability:.3f}" if average_word_probability is not None else "n/a",
+            )
             
             return AudioTranscript(
                 text=" ".join(segment.text for segment in segments_list),
                 segments=segment_data,
-                language=info.language
+                language=info.language,
+                word_count=word_count,
+                average_word_probability=average_word_probability,
+                speech_duration=speech_duration,
             )
             
         except Exception as e:

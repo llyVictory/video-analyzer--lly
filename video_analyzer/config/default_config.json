@@ -49,7 +49,7 @@
         "quality_threshold": 0.2,
         "chunk_length": 30,
         "language_confidence_threshold": 0.8,
-        "language": "en",
+        "language": null,
         "device": "cpu"
     },
     "keep_frames": false,
